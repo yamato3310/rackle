@@ -6,11 +6,13 @@ import GuideScreen from '../screens/GuideScreen';
 import HomeScreen from '../screens/HomeScreen';
 import MovieNavigateScreen from '../screens/MovieNavigateScreen';
 import MyPageScreen from '../screens/MyPageScreen';
+import CarouselScreen from '../screens/CarouselScreen';
 
 const GuideStack = createStackNavigator({ Guide: { screen: GuideScreen } });
 const HomeStack = createStackNavigator({ Home: { screen: HomeScreen } });
 const MovieNavigateStack = createStackNavigator({ MovieNavigate: { screen: MovieNavigateScreen } });
 const MyPageStack = createStackNavigator({ MyPage: { screen: MyPageScreen } });
+const CarouselStack = createStackNavigator({ Carousel: { screen: CarouselScreen } });
 
 HomeStack.navigationOptions = {
   tabBarLabel: 'Home',
@@ -36,9 +38,16 @@ MovieNavigateStack.navigationOptions = {
   ),
 };
 
+CarouselStack.navigationOptions = {
+  tabBarLabel: '',
+  tabBarIcon: ({ focused }) => (
+    <TabBarIcon focused={focused} name={Platform.OS === 'ios' ? 'ios-person' : 'md-person'} />
+  ),
+};
+
 GuideStack.navigationOptions = { tabBarVisible: true };
 
-const tabNavigator = createBottomTabNavigator({ HomeStack, MyPageStack, MovieNavigateStack }, {
+const tabNavigator = createBottomTabNavigator({ HomeStack, MyPageStack, MovieNavigateStack, CarouselStack}, {
   tabBarOptions: {
     activeTintColor: '#312D2D',
     inactiveTintColor: '#312D2D',
@@ -49,8 +58,9 @@ const tabNavigator = createBottomTabNavigator({ HomeStack, MyPageStack, MovieNav
 export default createStackNavigator({
   Main: { screen: tabNavigator },
   Guide: { screen: GuideStack },
+  Carousel: { screen: CarouselStack },
 }, {
-    initialRouteName: 'Guide',
+    initialRouteName: 'Carousel',
     headerMode: 'none',
   }
 );
