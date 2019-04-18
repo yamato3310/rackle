@@ -7,7 +7,8 @@ http://yokohama-youth.jp/win2018/?fbclid=IwAR35pfLZXddKamY7oYW9VAV_QPvhbbnPPhwRt
 車椅子、ベビーカー使用者に駅構内の改札から改札のバリアのない経路を案内するアプリです。
 
 ![](image/アイデアパネル_LI.jpg)
-![](https://s17.aconvert.com/convert/p3r68-cdx67/p8j09-e1zyq.gif)
+
+![](image/p8j09-e1zyq.gif)
 
 # 技術面
 - フロントにReact Nativeを使用
@@ -18,5 +19,3 @@ http://yokohama-youth.jp/win2018/?fbclid=IwAR35pfLZXddKamY7oYW9VAV_QPvhbbnPPhwRt
 - 使用するMap Apiの選定
 - React Nativeのコーディング
 
-# 今回の感想・今後の課題
--
