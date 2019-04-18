@@ -8,6 +8,8 @@ http://yokohama-youth.jp/win2018/?fbclid=IwAR35pfLZXddKamY7oYW9VAV_QPvhbbnPPhwRt
 
 ![](image/アイデアパネル_LI.jpg)
 
+## 操作画面
+
 ![](image/p8j09-e1zyq.gif)
 
 # 技術面
