@@ -3,7 +3,7 @@ http://yokohama-youth.jp/win2018/?fbclid=IwAR35pfLZXddKamY7oYW9VAV_QPvhbbnPPhwRt
 
 最優秀賞と広報賞を受賞🎉
 
-学内コンテスト　プロコンで優秀賞🎉
+学内コンテストiscプロコンで優秀賞🎉
 
 # 成果物
 車椅子、ベビーカー使用者に駅構内の改札から改札のバリアのない経路を案内するアプリです。
