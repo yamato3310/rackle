@@ -1,29 +1,46 @@
 import * as React from 'react';
-import {Dimensions, StyleSheet, Text, View, ScrollView, TouchableOpacity} from 'react-native';
+import {Dimensions, StyleSheet, Text, View, ScrollView, TouchableOpacity, Image, ImageBackground} from 'react-native';
 import RNPickerSelect from 'react-native-picker-select';
 import { LinearGradient } from 'expo';
 import Color from '../constants/Colors';
 import EStyleSheet from 'react-native-extended-stylesheet';
 import { ExtButton } from '../components/ExtButton';
-import { StationData } from '../dummydata/stations';
 import { StationType, LineType } from '../domains/station';
 import * as _ from 'lodash';
 import { GateSelector } from '../components/GateSelector';
+import headerLogo from '../../assets/images/header-logo-image.png';
+import homeImage from '../../assets/images/home_image.jpg';
+import swapIcon from '../../assets/images/changeIcon.png';
+import { getTrainLines } from '../services/train_lines';
+import { getGates } from '../services/gates';
+import { Gate } from 'src/domains/gate';
 
 interface Props { navigation: any; }
 
 interface State {
   station: StationType;
   lines: LineType;
-  selectedFromLineId: number;
-  selectedToLineId: number;
+  fromGates: Gate[];
+  toGates: Gate[];
+  selectedFromLineId: number | undefined;
+  selectedToLineId: number | undefined;
   selectedFromGateId: number | undefined;
   selectedToGateId: number | undefined;
 }
 
+class LogoTitle extends React.Component {
+  render() {
+    return (
+      <Image
+        source={headerLogo}
+        style={{ width: 110, height: 20 }}
+      />
+    );
+  }
+}
+
 export default class HomeScreen extends React.Component<Props, State> {
   public static navigationOptions = {
-    title: 'rackle',
     headerStyle: {
       backgroundColor: Color.mainColor,
       borderBottomWidth: 0,
@@ -31,32 +48,39 @@ export default class HomeScreen extends React.Component<Props, State> {
     headerTitleStyle: {
       color: Color.white,
     },
+    headerTitle: <LogoTitle />,
   };
 
   readonly state = {
-    station: StationData.station,
-    lines: StationData.train_lines,
-    selectedFromLineId: 0,
-    selectedToLineId: 0,
+    station: undefined,
+    lines: undefined,
+    fromGates: undefined,
+    toGates: undefined,
+    selectedFromLineId: undefined,
+    selectedToLineId: undefined,
     selectedFromGateId: undefined,
     selectedToGateId: undefined,
   };
 
-  public render() {
-    const { height } = Dimensions.get('window');
+  async componentDidMount () {
+    // MEMO yokohama = 1
+    // const data = await getStation();
+    // const station = data.station![0];
+    const lines = await getTrainLines(1); // yokohama id
+    this.setState({
+      station: lines.station,
+      lines: lines.train_lines,
+    });
+  }
 
+  public render() {
     return (
       <View style={styles.container}>
-      <ScrollView>
+      <ScrollView style={styles.ScrollView}>
+      <ImageBackground source={homeImage} style={{width: '100%', height: '130%', backgroundSize: 'cover'}}>
         <LinearGradient
-          colors={[Color.mainColor, Color.subColorOffWhite, Color.subColorOffWhite]}
-          style={{
-            position: 'absolute',
-            left: 0,
-            right: 0,
-            top: 0,
-            minHeight: height,
-          }}
+          colors={['rgba(67, 195, 142, 1)', 'rgba(250, 250, 250, 0.7)', 'rgba(250, 250, 250, 1)']}
+          style={gradationStyle.gradation}
           start={{ x: 0, y: 0 }}
           end={{ x: 0, y: 1 }}
         />
@@ -69,11 +93,14 @@ export default class HomeScreen extends React.Component<Props, State> {
         <View style={containerStyles.searchFormContainer}>
           <View style={containerStyles.inputSetContainer}>
             <View style={containerStyles.inputContainer}>
-              <View style={containerStyles.selectContainer} >
+              <View style={containerStyles.selectContainer}>
                 <RNPickerSelect
                   placeholder={{ label: '駅を選択してください', value: null, color: '#9EA0A4', }}
                   items={this.castLineTypeToPickerItemType()}
-                  onValueChange={(value: number) => { this.setState({ selectedFromLineId: value }); }}
+                    onValueChange={(value: number) => {
+                      this.setState({ selectedFromLineId: value });
+                      this.updateFromGateIds(value);
+                    }}
                   style={{...inputPickerStyle}}
                   value={this.state.selectedFromLineId}
                   useNativeAndroidPickerStyle={false}
@@ -85,19 +112,7 @@ export default class HomeScreen extends React.Component<Props, State> {
               </View>
 
             <View style={containerStyles.searchedListContainer}>
-              {this.state.lines.map((line, index) => {
-                const isActive = this.state.selectedFromGateId && ( this.state.selectedFromGateId === line.id);
-
-                return (
-                  <GateSelector
-                    key={`fromSelector_${index}`}
-                    active={isActive}
-                    gateName={line.name}
-                    value={line.id}
-                    updateActiveSelector={this.updateFromSelecter}
-                  />
-                );
-              })}
+              {this.fromGateSelectors()}
             </View>
 
           </View>
@@ -106,7 +121,10 @@ export default class HomeScreen extends React.Component<Props, State> {
                 <RNPickerSelect
                   placeholder={{ label: '駅を選択してください', value: null, color: '#9EA0A4', }}
                   items={this.castLineTypeToPickerItemType()}
-                  onValueChange={(value: number) => { this.setState({ selectedToLineId: value }); }}
+                    onValueChange={(value: number) => {
+                      this.setState({ selectedToLineId: value });
+                      this.updateToGateIds(value);
+                    }}
                   style={{...inputPickerStyle}}
                   value={this.state.selectedToLineId}
                   useNativeAndroidPickerStyle={false}
@@ -116,24 +134,12 @@ export default class HomeScreen extends React.Component<Props, State> {
                 </View>
               </View>
               <View style={containerStyles.searchedListContainer}>
-              {this.state.lines.map((line, index) => {
-                const isActive = this.state.selectedToGateId && (this.state.selectedToGateId === line.id);
-
-                return (
-                  <GateSelector
-                    key={`fromSelector_${index}`}
-                    active={isActive}
-                    gateName={line.name}
-                    value={line.id}
-                    updateActiveSelector={this.updateToSelector}
-                  />
-                );
-              })}
+                {this.toGateSelectors()}
               </View>
             </View>
           </View>
           <TouchableOpacity style={ButtonStyle.switchButton} onPress={this.switchDestination}>
-            <Text>■</Text>
+            <Image source={swapIcon} style={ButtonStyle.image}/>
           </TouchableOpacity>
         </View>
           <ExtButton
@@ -141,9 +147,70 @@ export default class HomeScreen extends React.Component<Props, State> {
             navigate={this.props.navigation.navigate}
             pageName={'Guide'}
           />
-        </ScrollView>
+      </ImageBackground>
+      </ScrollView>
       </View>
     );
+  }
+
+  private fromGateSelectors = () => {
+    const selectedLineId = this.state.selectedFromLineId;
+
+    if (selectedLineId == undefined) return null;
+    if (this.state.fromGates == undefined) return null;
+    if (_.isEmpty(this.state.fromGates)) return null;
+
+    return this.state.fromGates.map((gate, index) => {
+      const isActive = this.state.selectedFromGateId === gate.id;
+
+      return (
+        <GateSelector
+          key={`from_selector_${index}`}
+          active={isActive}
+          gateName={gate.name}
+          value={gate.id}
+          updateActiveSelector={this.updateFromSelecter}
+        />
+      );
+    });
+  }
+
+  private toGateSelectors = () => {
+    const selectedLineId = this.state.selectedToLineId;
+
+    if (selectedLineId == undefined) return null;
+    if (this.state.toGates == undefined) return null;
+    if (_.isEmpty(this.state.toGates)) return null;
+
+    return this.state.toGates.map((gate, index) => {
+      const isActive = this.state.selectedToGateId === gate.id;
+
+      return (
+        <GateSelector
+          key={`to_selector_${index}`}
+          active={isActive}
+          gateName={gate.name}
+          value={gate.id}
+          updateActiveSelector={this.updateToSelector}
+        />
+      );
+    });
+  }
+
+  private updateFromGateIds = async(lineId: number) => {
+    const stationId = this.state.station.id;
+    if (stationId == undefined) return;
+
+    const fromGates = await getGates(stationId, lineId);
+    this.setState({ fromGates });
+  }
+
+  private updateToGateIds = async (lineId: number) => {
+    const stationId = this.state.station.id;
+    if (stationId == undefined) return;
+
+    const toGates = await getGates(stationId, lineId);
+    this.setState({toGates});
   }
 
   private switchDestination = () => {
@@ -152,13 +219,17 @@ export default class HomeScreen extends React.Component<Props, State> {
     this.setState({
       selectedFromLineId: currentState.selectedToLineId,
       selectedToLineId: currentState.selectedFromLineId,
+      selectedFromGateId: currentState.selectedToGateId,
+      selectedToGateId: currentState.selectedFromGateId,
     });
   }
+
   private castLineTypeToPickerItemType = () => {
+    if (this.state.lines == undefined) return [];
     if (_.isEmpty(this.state.lines)) return [];
 
     // 毎回やってるのなんか嫌い
-    return this.state.lines.map(line => {
+    return this.state.lines.map((line: any) => {
       return _.mapKeys(line, (_, key) => {
         return key === 'id' ? 'value' : key === 'name' ? 'label' : key;
       });
@@ -172,16 +243,33 @@ export default class HomeScreen extends React.Component<Props, State> {
   private updateToSelector = (e: number) => {
     this.setState({selectedToGateId: e});
   }
-
 }
 
 EStyleSheet.build();
 
-const styles = StyleSheet.create({
+const styles = EStyleSheet.create({
   container: {
     backgroundColor: Color.mainColor,
     flex: 1,
     flexDirection: 'column',
+    height: '100%',
+  },
+  ScrollView: {
+    height: '100%',
+  },
+});
+
+const { height } = Dimensions.get('window');
+
+const gradationStyle = EStyleSheet.create({
+  gradation: {
+    height: '100%',
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
+    minHeight: height,
   },
 });
 
@@ -223,22 +311,29 @@ const containerStyles = EStyleSheet.create({
     justifyContent: 'center',
   },
   selectContainer: {
-    marginBottom: '0.5rem',
+    // marginBottom: '0rem',
   },
   searchedListContainer: {
+    width: '100%',
     flexDirection: 'row',
     flexWrap: 'wrap',
     alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: '1.8rem',
+    justifyContent: 'flex-start',
+    marginTop: '0.5rem',
+    marginBottom: '0.5rem',
+    marginLeft: 'auto',
+    marginRight: 'auto',
   },
   searchFormContainer: {
     alignItems: 'center',
     justifyContent: 'center',
     flexDirection: 'row',
+    marginBottom: '1.8rem',
   },
   inputSetContainer: {
     width: '85%',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });
 
@@ -288,8 +383,8 @@ const inputPickerStyle = EStyleSheet.create({
     paddingTop: '0.7rem',
     paddingHorizontal: 10,
     paddingBottom: '0.7rem',
-    borderWidth: 1,
-    borderColor: Color.subColorGray,
+    // borderWidth: 1,
+    // borderColor: Color.subColorGray,
     borderRadius: 50,
     backgroundColor: 'white',
     color: 'black',
@@ -302,8 +397,8 @@ const inputPickerStyle = EStyleSheet.create({
     paddingTop: '0.8rem',
     paddingHorizontal: 10,
     paddingBottom: '0.7rem',
-    borderWidth: 1,
-    borderColor: Color.subColorGray,
+    // borderWidth: 1,
+    // borderColor: Color.subColorGray,
     borderRadius: 50,
     backgroundColor: 'white',
     color: 'black',
@@ -315,8 +410,17 @@ const inputPickerStyle = EStyleSheet.create({
 
 const ButtonStyle = EStyleSheet.create({
   switchButton: {
-    width: '7%',
-    height: '7%',
-    backgroundColor: Color.mainColor,
+    width: 30,
+    height: 30,
+    backgroundColor: Color.swapBtnColor,
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: '0.3rem',
+    marginBottom: '1rem',
+  },
+  image: {
+    width: 20,
+    height: 20,
   },
 });

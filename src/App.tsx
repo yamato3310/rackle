@@ -35,12 +35,31 @@ export default class App extends React.Component <Props, State> {
 
   private loadResourcesAsync = async () => {
     return Promise.all([
-      Asset.loadAsync([require('../assets/images/robot-dev.png'), require('../assets/images/robot-prod.png')]),
+      Asset.loadAsync([
+        require('../assets/images/header-logo-image.png'),
+        require('../assets/images/home_image.jpg'),
+        require('../assets/images/changeIcon.png'),
+        require('../assets/images/movie-load-icon.png'),
+        require('../assets/images/user_setting_icon_1_0.png'),
+        require('../assets/images/user_setting_icon_2_0.png'),
+        require('../assets/images/user_setting_icon_3_0.png'),
+        require('../assets/images/marker.png'),
+        // ↓で読み込むと早いけど、なんかサイズが狂う
+        // require('../assets/images/map-toilet-marker.png'),
+        // require('../assets/images/map_movie_pointer.png'),
+        // require('../assets/images/map-elevator-small-marker.png'),
+        // require('../assets/images/map-elevator-big-marker.png'),
+        // require('../assets/images/map-ticket-gate.png'),
+        // require('../assets/images/map-movie-marker-check.png'),
+      ]),
       Font.loadAsync({
         // This is the font that we are using for our tab bar
         ...Icon.Ionicons.font,
         // We include SpaceMono because we use it in HomeScreen.js. Feel free to remove
         // this if you are not using it in your app
+        'MPLUS1p': require('../assets/fonts/MPLUS1p-Regular.ttf'),
+        'MPLUS1p-Medium': require('../assets/fonts/MPLUS1p-Medium.ttf'),
+        'MPLUS1p-Bold': require('../assets/fonts/MPLUS1p-Bold.ttf'),
         'space-mono': require('../assets/fonts/SpaceMono-Regular.ttf'),
       }),
     ]);

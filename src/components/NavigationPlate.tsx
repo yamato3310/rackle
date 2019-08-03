@@ -1,66 +1,81 @@
 import * as React from 'react';
-import { Text, View, TouchableOpacity } from 'react-native';
+import { Text, View, TouchableOpacity, Image } from 'react-native';
 import EStyleSheet from 'react-native-extended-stylesheet';
 import Color from '../constants/Colors';
+import { FontAwesome } from '@expo/vector-icons';
+import mapMarker from '../../assets/images/marker.png';
 
 interface Props {
   stationName: string;
   startGateName: string;
   endGateName: string;
+  caption: string;
 }
 
 const NavigationPlate: React.FC<Props> = props => (
-  <View style={guideHeaderStyle.container}>
-    <View style={guideHeaderStyle.leftContainer}>
-      <Text style={guideHeaderStyle.stationName}>{props.stationName}</Text>
-      <View style={guideHeaderStyle.routeContainer}>
-        <TouchableOpacity style={guideHeaderStyle.gateNameContainer}>
-          <Text style={guideHeaderStyle.gateName}>{props.startGateName}</Text>
+  <View style={styles.container}>
+    <View style={styles.leftContainer}>
+      {/* <FontAwesome name={'map-marker'} size={16} color={Color.subColorRed} style={styles.mapMarkerIcon} /> */}
+      <Image source={mapMarker} style={styles.mapMarkerIcon}/>
+      <Text style={styles.stationName}>{props.stationName}</Text>
+      <View style={styles.routeContainer}>
+        <TouchableOpacity style={styles.gateNameContainer}>
+          <Text style={styles.gateName}>{props.startGateName}</Text>
         </TouchableOpacity>
-        <View style={guideHeaderStyle.routeOptions}>
-          <Text style={guideHeaderStyle.routeOptionText}>▶︎▶︎▶︎</Text>
-        </View>
-        <TouchableOpacity style={guideHeaderStyle.gateNameContainer}>
-          <Text style={guideHeaderStyle.gateName}>{props.endGateName}</Text>
+        <Text style={styles.routeOptionText}>▶︎▶︎▶︎</Text>
+        <TouchableOpacity style={styles.gateNameContainer}>
+          <Text style={styles.gateName}>{props.endGateName}</Text>
         </TouchableOpacity>
       </View>
     </View>
+    <Text style={styles.caption}>{props.caption}</Text>
   </View>
 );
 
 EStyleSheet.build({});
 
-const guideHeaderStyle = EStyleSheet.create({
+const styles = EStyleSheet.create({
   container: {
     flex: 1,
-    flexDirection: 'row',
-    height: 30,
-    justifyContent: 'flex-start',
-    backgroundColor: Color.black,
+    flexDirection: 'column',
+    height: 69,
+    backgroundColor: 'transparent',
   },
   leftContainer: {
     flex: 1,
     flexDirection: 'row',
+    justifyContent: 'flex-start',
+    alignItems: 'center',
     height: 30,
   },
+  mapMarkerIcon: {
+    width: 18,
+    height: 18,
+    marginLeft: 5,
+    textAlign: 'center',
+    lineHeight: 30,
+    marginBottom: 2,
+  },
   stationName: {
-    marginHorizontal: 10,
-    color: 'white',
+    marginLeft: 5,
+    marginRight: 5,
+    color: Color.white,
     fontSize: '1rem',
     lineHeight: 30,
+    fontFamily: 'MPLUS1p',
   },
   gateNameContainer: {
-    backgroundColor: 'white',
+    backgroundColor: Color.white,
     height: 20,
-    paddingLeft: 10,
-    paddingRight: 10,
-    marginTop: 5,
+    paddingHorizontal: 10,
+    marginVertical: 5,
     borderRadius: 50,
-    marginHorizontal: 5,
+    marginLeft: 5,
   },
   gateName: {
     lineHeight: 20,
-    fontSize: '0.7rem',
+    fontSize: '0.72rem',
+    fontFamily: 'MPLUS1p',
   },
   routeContainer: {
     flex: 1,
@@ -68,58 +83,21 @@ const guideHeaderStyle = EStyleSheet.create({
     justifyContent: 'flex-start',
   },
   routeOptionText: {
-    fontSize: '0.7rem',
+    fontSize: '0.6rem',
     color: Color.subColorRed,
     lineHeight: 30,
-    paddingRight: 0.5,
+    marginLeft: 5,
+    fontFamily: 'MPLUS1p',
+    letterSpacing: -1,
+  },
+  caption: {
+    marginHorizontal: 10,
+    color: Color.white,
+    fontSize: '1.5rem',
+    lineHeight: 30,
+    fontWeight: '700',
+    fontFamily: 'MPLUS1p-Medium',
   },
 });
 
 export default NavigationPlate;
-
-// FIXME css GuidePlateでつかえそう // BRANCH='user_page_screen'
-// const guideHeaderStyle = EStyleSheet.create({
-//   container: {
-//     flex: 1,
-//     flexDirection: 'row',
-//     height: 30,
-//     marginTop: getStatusBarHeight(),
-//     justifyContent: 'flex-start',
-//     backgroundColor: Color.black,
-//   },
-//   leftContainer: {
-//     flex: 1,
-//     flexDirection: 'row',
-//     height: 30,
-//   },
-//   stationName: {
-//     marginHorizontal: 10,
-//     color: 'white',
-//     fontSize: '1rem',
-//     lineHeight: 30,
-//   },
-//   gateNameContainer: {
-//     backgroundColor: 'white',
-//     height: 20,
-//     paddingLeft: 10,
-//     paddingRight: 10,
-//     marginTop: 5,
-//     borderRadius: 50,
-//     marginHorizontal: 5,
-//   },
-//   gateName: {
-//     lineHeight: 20,
-//     fontSize: '0.7rem',
-//   },
-//   routeContainer: {
-//     flex: 1,
-//     flexDirection: 'row',
-//     justifyContent: 'flex-start',
-//   },
-//   routeOptionText: {
-//     fontSize: '0.7rem',
-//     color: Color.subColorRed,
-//     lineHeight: 30,
-//     paddingRight: 0.5,
-//   },
-// });

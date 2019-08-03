@@ -1,26 +1,8 @@
-export interface MovieMarker {
-  floor: string;
-  movieId: number;
-  latitude: number;
-  longitude: number;
-}
+import { LocationPoint } from './location_point';
 
 export interface ToiletMarker {
-  floor: string;
-  latitude: number;
-  longitude: number;
-}
-
-export type ElevatorCapacity = 6 | 8 | 12;
-
-export interface ElevatorMarker {
-  floor: string;
-  capacity: ElevatorCapacity;
-  latitude: number;
-  longitude: number;
-}
-
-export interface GuideLine {
+  id: number;
+  name: string;
   floor: string;
   latitude: number;
   longitude: number;
@@ -33,3 +15,10 @@ export interface Region {
   longitudeDelta: number;
 }
 
+export interface Elevators {
+  elevators: LocationPoint[];
+}
+
+export interface toilets {
+  toilets: ToiletMarker;
+}

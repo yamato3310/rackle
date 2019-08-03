@@ -1,43 +1,39 @@
 import * as React from 'react';
-import { View, Text, TouchableOpacity, Dimensions } from 'react-native';
+import { View, Text, TouchableOpacity, Dimensions, Image } from 'react-native';
+import Modal from 'react-native-modal';
 import EStyleSheet from 'react-native-extended-stylesheet';
-import { MapData } from '../dummydata/mapData';
-import { Region, MovieMarker, ToiletMarker, ElevatorMarker, GuideLine } from 'src/domains/map';
-import { Movie } from 'src/domains/movie';
+import { Region, ToiletMarker } from 'src/domains/map';
+import { Gate } from 'src/domains/gate';
 import MovieNavigateComponent from '../components/movieComponents/MovieNavigateComponent';
 import MapViewComponent from '../components/mapComponents/MapViewComponent';
-import Carousel from 'react-native-snap-carousel';
-import {Modal} from '../components/Modal';
-
+import Carousel, { Pagination } from 'react-native-snap-carousel';
+import { Modal as CarouselModal } from '../components/Modal';
+import Colors from '../constants/Colors';
+import movieIcon from '../../assets/images/movie-load-icon.png';
+import { getGuidelines } from '../services/guidelines';
+import { ObjectPoint } from '../domains/object_point';
+import { LocationPoint } from '../domains/location_point';
+import { S3ThumbnailPath } from '../services/s3_manager';
+import { Ionicons } from '@expo/vector-icons';
+import * as _ from 'lodash';
 
 interface Props { navigation: any; }
 
-type ScreenName = 'video' | 'map';
-type CarouselMarker = Movie;
+type ObjectType = 'movie' | 'gate' | 'elevator';
+type PlusOrMinus = 'plus' | 'minus';
 
-interface BaseState {
-  currentScreen: ScreenName | undefined;
-  showModal: boolean;
-}
-
-export interface ActiveMapState extends BaseState{
+interface State {
+  showCarouselModalVisible: boolean;
+  movieModalVisible: boolean;
   indoorLevel: string;
-  initializedLocation: Region | undefined;
-  movieMarkers: MovieMarker[] | undefined;
-  toiletMarkers: ToiletMarker[] | undefined;
-  elevatorMarkers: ElevatorMarker[] | undefined;
-  guideLines: GuideLine[] | undefined;
-  movies: Movie[];
-  carouselMarker?: CarouselMarker;
+  initializedLocation: Region;
+  objectPoint: ObjectPoint[] | undefined;
+  toilets: ToiletMarker[] | undefined;
+  guidelines: Partial<ObjectPoint>[];
+  selectedCarousel: Carousel;
+  objectPoints: ObjectPoint[];
+  guideLineMarkers: LocationPoint[];
 }
-
-interface ActiveMovieState extends BaseState {
-  movieId: string;
-  thumbnails: string[];
-  // FIXME 必要なものがわからん
-}
-
-type State = ActiveMapState & ActiveMovieState;
 
 export default class GuideScreen extends React.Component<Props, State> {
   public static navigationOptions = {
@@ -45,102 +41,213 @@ export default class GuideScreen extends React.Component<Props, State> {
   };
 
   readonly state: State = {
-    currentScreen: undefined,
-    showModal: false,
-    carouselMarker: undefined,
+    showCarouselModalVisible: false,
+    movieModalVisible: false,
   };
 
-  public componentDidMount () {
-    // FIXME 2回目以降はAsyncStorageとか使って以前のScreenを参照するようにしたい
-    const currentScreen = this.state.currentScreen === 'video' ? 'video' : 'map'; // defaultは'map'
+  async componentDidMount () {
+    const mapData = await getGuidelines(6, 11);
+    const objectPoints = this.indoorChanges(mapData.object_points);
+    const initialSelectedCarousel = objectPoints[0];
 
-    if (currentScreen === 'map') {
-      this.setState({
-        currentScreen,
-        indoorLevel: MapData.indoorLevel,
-        initializedLocation: MapData.initializedLocation,
-        movieMarkers: MapData.movieMarkers,
-        guideLines: MapData.guideLines,
-        elevatorMarkers: MapData.elevatorMarkers,
-        movies: MapData.movies,
-      });
-    } else {
-      // TODO set movie states...
-      this.setState({
-        currentScreen,
-        movieId: 'tmpState', // tmp
-        thumbnails: ['OwSekWSe7NM', 'OwSekWSe7NM', 'OwSekWSe7NM', 'OwSekWSe7NM', 'OwSekWSe7NM'],
-      });
-    }
-  }
-
-  public componentWillUpdate (nextProps: Props, nextState: State) {
-    if (this.state.indoorLevel !== nextState.indoorLevel) this.setState({carouselMarker: undefined});
+    this.setState({
+      indoorLevel: '1',
+      initializedLocation: {
+        latitude: 35.46588771428577,
+        longitude: 139.62227088041905,
+        latitudeDelta: 0.1,
+        longitudeDelta: 0.1,
+      },
+      guideLineMarkers: this.indoorChanges(mapData.guidelines.location_points),
+      toilets: this.indoorChanges(mapData.toilets),
+      objectPoints,
+      selectedCarousel: initialSelectedCarousel,
+    });
   }
 
   public render () {
-    // NITS もう少し厳密に判断した方がいい説 :thinking:
-    if (this.state.currentScreen == undefined) return null; // TODO loading animation
-    if ((this.state.indoorLevel !== undefined) && (this.state.movieId !== undefined)) return null;
+    if (this.state.indoorLevel == undefined) return null;
 
     const {
-      indoorLevel, initializedLocation,
-      toiletMarkers, elevatorMarkers, guideLines, movies,
+      indoorLevel,
+      initializedLocation,
+      toilets,
+      guideLineMarkers,
     } = this.state;
 
-    let currentCarousel = movies.filter(movie => movie.floor === this.state.indoorLevel);
+    const {height, width} = Dimensions.get('screen');
+
+    const carouselFilteredByFloor = this.carouselFilteredByIndoorLevel();
 
     return (
       <View style={styles.content_wrap}>
+        <Ionicons name='md-arrow-back' size={45} style={styles.backBtn} onPress={this.goBack}/>
         <MapViewComponent
           indoorLevel={indoorLevel}
           initializedLocation={initializedLocation!}
-          movieMarkers={this.createMovieMarkers()}
-          toiletMarkers={toiletMarkers}
-          elevatorMarkers={elevatorMarkers}
-          guideLines={guideLines}
+          movieMarkers={this.createMarkers('movie')}
+          toiletMarkers={this.createToiletMarkers(toilets, indoorLevel)}
+          elevatorMarkers={this.createMarkers('elevator')}
+          guideLines={this.createGuideLineMarkers(guideLineMarkers, indoorLevel)}
           changeIndoorLevel={this.changeIndoorLevel}
-          carouselMarker={this.state.carouselMarker}
+          currentCarousel={this.state.selectedCarousel}
+          changeCarousel={this.changeCarousel}
+          gate={this.createMarkers('gate')}
+          hideModal={this.hideModal}
+          modalChange={this.state.showCarouselModalVisible}
         />
-        {/* TODO
-          MapComponentは常に表示して、ビデオを出し分けるなどしたい
-        */}
-        <Modal modalView={this.state.showModal}>
+        <CarouselModal modalView={this.state.showCarouselModalVisible}>
           <Carousel
-            data={currentCarousel}
-            itemWidth={Dimensions.get('screen').width}
-            sliderWidth={Dimensions.get('screen').width}
-            sliderHeight={Dimensions.get('screen').height}
+            data={carouselFilteredByFloor}
+            itemWidth={width * 0.8}
+            sliderWidth={width}
+            sliderHeight={height}
             renderItem={this.carouselRenderItem}
             lockScrollWhileSnapping={true}
-            onSnapToItem = {this.carouselOnSnapToItem}
+            onSnapToItem={this.carouselOnSnapToItem}
             inactiveSlideShift={0.1}
+            firstItem={carouselFilteredByFloor.indexOf(this.state.selectedCarousel)}
+          />
+          <Pagination
+            activeDotIndex={this.currentPaginationPoint(carouselFilteredByFloor)}
+            dotsLength={carouselFilteredByFloor.length > 6 ? 6 : carouselFilteredByFloor.length}
+            dotStyle={styles.paginationDotStyle}
+          />
+        </CarouselModal>
+        <Modal
+          presentationStyle='fullScreen'
+          isVisible={this.state.movieModalVisible}
+          swipeDirection='down'
+          onSwipe={this.closeMovieModal}
+          deviceHeight={height}
+          deviceWidth={width}
+        >
+          <MovieNavigateComponent
+            setMovieModalVisible={this.closeMovieModal}
+            carouselMarker={this.state.selectedCarousel}
           />
         </Modal>
-          <View style={styles.showModalBottomAround}>
-            <TouchableOpacity onPress={this.changeModal.bind(this, Carousel)} style={styles.showModalBottom} >
-              <Text style={styles.showModalBottomText}>OPEN</Text>
-            </TouchableOpacity>
-          </View>
+        {this.renderCarouselModalButton()}
       </View>
     );
   }
 
-  private carouselRenderItem = () => {
-    return <View style={styles.carousel}></View>;
+  private goBack = () => this.props.navigation.goBack();
+
+  private setMovieModalVisible = (movieModalVisible: boolean) => this.setState({ movieModalVisible });
+
+  private openMovieModal = () => this.setMovieModalVisible(true);
+
+  private closeMovieModal = () => this.setMovieModalVisible(false);
+
+  private indoorChanges = (items: any) => {
+    if (items == undefined) return;
+
+    return items.map((item: Gate) => {
+      const floor = String(item.floor).replace('-', 'B');
+      item.floor = floor;
+      return item;
+    });
+  }
+
+  private currentPaginationPoint = (carouselFilteredByFloor: ObjectPoint[]) => {
+    const selectedCarouselIndex = _.findIndex(
+      carouselFilteredByFloor,carousel => carousel === this.state.selectedCarousel
+    );
+    if (carouselFilteredByFloor.length <= 6) return selectedCarouselIndex;
+
+    return Math.round(((selectedCarouselIndex + 1) / carouselFilteredByFloor.length) * 6 - 1);
+  }
+
+  private carouselRenderItem = ({item}: any)=> {
+    const carousel = this.state.objectPoints;
+    const index = carousel.indexOf(item);
+
+    return (
+      <View style={styles.carousel}>
+        <View style={styles.carouselInThumbnail}>
+          <Image source={{ uri: S3ThumbnailPath(item.thumbnail_path) }} style={styles.thumbnailImage} />
+        </View>
+        <View style={styles.carouselInText}>
+          <Text style={styles.carouselText}>{index + 1}</Text>
+        </View>
+        {
+          item.type === 'elevator' ?
+            <View style={styles.carouselElevatorLabel}>
+              <Text style={styles.carouselElevatorLabelText}>{item.caption}</Text>
+            </View> : null
+        }
+        <View style={styles.carouselMovieBottom}>
+          <TouchableOpacity style={styles.carouselMovieBottomRadius} onPress={this.openMovieModal}>
+            <View style={styles.carouselMovieBottomTextAround}>
+              <Image source={movieIcon} style={styles.movieIcon} />
+              <Text style={styles.carouselMovieBottomText}>再生</Text>
+            </View>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
+
+  private renderCarouselModalButton = () => {
+    const carousels = this.carouselFilteredByIndoorLevel();
+    if (carousels.length === 0) return;
+
+    const carouselModalVisible = this.state.showCarouselModalVisible;
+    const containerStyle = carouselModalVisible ? styles.closeModalButtonContainer : styles.openModalButtonContainer;
+    const textStyle = carouselModalVisible ? styles.closeText : styles.openText;
+
+    return (
+      <View style={styles.showModalBottomAround}>
+        <TouchableOpacity
+          onPress={() => this.changeModal(this.state.initializedLocation)}
+          style={styles.showModalBottom}
+        >
+          <View style={containerStyle}>
+            <Text style={textStyle}>
+              {carouselModalVisible ? 'CLOSE' : 'OPEN'}
+            </Text>
+          </View>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  private centerLatitude = (type: PlusOrMinus) => {
+    return type === 'plus' ? 0.0006 : -0.0006;
   }
 
   private carouselOnSnapToItem = (index: number) => {
-    if (this.state.movies == undefined) return;
-
-    const currentCarousel = this.state.movies.filter(movie => movie.floor === this.state.indoorLevel);
-    return this.changeInitializedLocation(currentCarousel[index]);
+    if (this.state.objectPoints == undefined) return ;
+    return this.changeInitializedLocation(this.carouselFilteredByIndoorLevel()[index]);
   }
 
-  private changeModal = () => {
-    this.setState({
-      showModal: this.state.showModal ? false : true,
-    });
+  private carouselFilteredByIndoorLevel = () => {
+    return this.state.objectPoints.filter(point => point.floor === this.state.indoorLevel);
+  }
+
+  private changeModal = (initializedLocation: Region) => {
+    const selectedCarousel = this.state.selectedCarousel || this.state.objectPoints[0];
+
+    this.state.showCarouselModalVisible ?
+      this.setState({
+        showCarouselModalVisible: false,
+        initializedLocation: {
+          latitude: initializedLocation.latitude + this.centerLatitude('plus'),
+          longitude: initializedLocation.longitude,
+          latitudeDelta: 0.1,
+          longitudeDelta: 0.1,
+        },
+      }) : this.setState({
+        showCarouselModalVisible: true,
+        selectedCarousel,
+        initializedLocation: {
+          latitude: initializedLocation.latitude + this.centerLatitude('minus'),
+          longitude: initializedLocation.longitude,
+          latitudeDelta: 0.1,
+          longitudeDelta: 0.1,
+        },
+      });
   }
 
   private changeIndoorLevel = (nextIndoorLevel: string) => {
@@ -149,27 +256,74 @@ export default class GuideScreen extends React.Component<Props, State> {
     this.setState({ indoorLevel });
   }
 
-  private changeInitializedLocation(movie: Movie) {
-    const centerLatitude = -0.0006;
-    const latitude = movie.latitude + centerLatitude;
+  private changeInitializedLocation = (carousel: ObjectPoint) => {
+    const latitude = carousel.latitude + this.centerLatitude('minus');
     this.setState({
       initializedLocation: {
         latitude: latitude,
-        longitude: movie.longitude,
+        longitude: carousel.longitude,
         latitudeDelta: 0.1,
         longitudeDelta: 0.1,
       },
-      carouselMarker: movie,
+      selectedCarousel: carousel,
     });
   }
 
-  private createMovieMarkers() {
-    if (this.state.movieMarkers == undefined) return undefined;
+  private createMarkers = (type: ObjectType) => {
+    const objectPoints = this.carouselFilteredByIndoorLevel();
+    if (objectPoints == undefined) return;
 
-    if (this.state.carouselMarker == undefined) return this.state.movieMarkers;
+    const indoorLevel = this.state.indoorLevel;
+    const markerPoints = objectPoints.filter(objectPoint => objectPoint.type === type);
 
-    const carouselMarkerId = this.state.carouselMarker.id;
-    return this.state.movieMarkers.filter(movieMarker => movieMarker.movieId !== carouselMarkerId);
+    if (this.state.selectedCarousel == undefined) {
+      return markerPoints.filter(markerPoint => markerPoint.floor === indoorLevel);
+    }
+
+    if (this.state.selectedCarousel.type === type) {
+      return markerPoints.filter(markerPoint => markerPoint !== this.state.selectedCarousel);
+    }
+    return markerPoints;
+  }
+
+  private createGuideLineMarkers = (guideLins: LocationPoint[], indoorLevel: string) => {
+    if (guideLins == undefined) return;
+
+    return guideLins.filter(guideLin => guideLin.floor === indoorLevel);
+  }
+
+  private createToiletMarkers = (toiletMarkers: ToiletMarker[] | undefined, indoorLevel: string) => {
+    if (toiletMarkers == undefined) return;
+
+    return toiletMarkers.filter(toiletMarker => toiletMarker.floor === indoorLevel);
+  }
+
+  private changeCarousel = (selectedCarousel: ObjectPoint) => {
+    const latitude = selectedCarousel.latitude + this.centerLatitude('minus');
+
+    this.setState({
+      showCarouselModalVisible: true,
+      selectedCarousel,
+      initializedLocation: {
+        latitude: latitude,
+        longitude: selectedCarousel.longitude,
+        latitudeDelta: 0.1,
+        longitudeDelta: 0.1,
+      },
+    });
+  }
+
+  private hideModal = () => {
+    const initializedLocation = this.state.initializedLocation;
+    this.setState({
+      showCarouselModalVisible: false,
+      initializedLocation: {
+        latitude: initializedLocation.latitude  + this.centerLatitude('plus'),
+        longitude: initializedLocation.longitude,
+        latitudeDelta: 0.1,
+        longitudeDelta: 0.1,
+      },
+    });
   }
 }
 
@@ -181,7 +335,16 @@ const styles = EStyleSheet.create({
     flex: 1,
     top: 0,
     position: 'relative',
-    //marginBottom: height * 0.07,
+  },
+  backBtn: {
+    position: 'absolute',
+    height: 45,
+    width: 45,
+    left: 20,
+    top: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 10,
   },
   thumbnails: {
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
@@ -192,14 +355,14 @@ const styles = EStyleSheet.create({
     position: 'absolute',
   },
   thumbnailImage: {
-    width: 120,
-    height: 90,
+    width: '100%',
+    height: '100%',
   },
   modal: {
     width: width * 0.79,
     height: height * 0.48,
     backgroundColor: 'red',
-    marginBottom: height * 0.1,
+    marginBottom: height * 0.05,
   },
   modalInView: {
     width: width * 0.79,
@@ -211,35 +374,130 @@ const styles = EStyleSheet.create({
   },
   showModalBottom: {
     width: width * 0.42,
-    height: height * 0.1,
-    backgroundColor: 'red',
-  },
-  showModalBottomText: {
-    bottom: 0,
-    position: 'absolute',
+    height: height * 0.05,
     justifyContent: 'center',
-    backgroundColor: '#000',
+    position: 'absolute',
+  },
+  openModalButtonContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.subColorRed,
+    width: width * 0.44,
+    height: height * 0.08,
+    borderRadius: '0.3rem',
+    paddingBottom: '0.3rem',
+  },
+  openText: {
+    color: Colors.white,
+    fontWeight: '700',
+    fontSize: 20,
+    letterSpacing: '0.05rem',
+  },
+  closeText: {
+    color: Colors.white,
+    fontWeight: '700',
+    fontSize: 20,
+    letterSpacing: '0.05rem',
+  },
+  closeModalButtonContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.black,
+    width: width * 0.44,
+    height: height * 0.08,
+    borderRadius: '0.3rem',
+    paddingBottom: '0.3rem',
   },
   showModalBottomAround: {
     width: width,
-    height: width * 0.07,
+    height: height * 0.08,
     position: 'absolute',
-    bottom: 0,
+    bottom: '-1rem',
     flexDirection: 'row',
     justifyContent: 'center',
   },
   carousel: {
     width: width * 0.79,
     height: height * 0.33,
-    backgroundColor: 'red',
     position: 'absolute',
     justifyContent: 'center',
     bottom: 0,
-    marginLeft: width * 0.1,
   },
   view: {
     width: width,
     height: '50%',
     backgroundColor: 'rgba(50, 50, 50, 1)',
+  },
+  paginationDotStyle: {
+    backgroundColor: '#fff',
+    marginBottom: height * 0.03,
+    marginTop: height * -0.025,
+    zIndex: 5,
+  },
+  carouselInThumbnail: {
+    position: 'absolute',
+    width: '100%',
+    height: '100%',
+    top: 0,
+    left: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  carouselInText: {
+    position: 'absolute',
+    width: width * 0.12,
+    height: width * 0.12,
+    bottom: 0,
+    left: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(77, 178, 124, 0.8)',
+  },
+  carouselText: {
+    color: Colors.white,
+    fontSize: '2rem',
+    fontWeight: '700',
+    fontFamily: 'MPLUS1p-Medium',
+  },
+  carouselMovieBottom: {
+    position: 'absolute',
+    top: -10,
+    right: -10,
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    borderRadius: 50,
+    zIndex: 100,
+  },
+  carouselMovieBottomRadius: {
+    borderRadius: 50,
+    width: width * 0.16,
+    height: width * 0.16,
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  carouselMovieBottomText: {
+    color: Colors.white,
+    fontWeight: '700',
+  },
+  carouselMovieBottomTextAround: {
+    alignItems: 'center',
+    height: width * 0.13,
+  },
+  movieIcon: {
+    width: width * 0.085,
+    height: width * 0.085,
+  },
+  carouselElevatorLabel: {
+    position: 'absolute',
+    bottom: 0,
+    left: width * 0.15,
+    height: width * 0.12,
+    justifyContent: 'center',
+  },
+  carouselElevatorLabelText: {
+    fontSize: '1rem',
+    fontWeight: '700',
+    fontFamily: 'MPLUS1p-Medium',
+    color: Colors.white,
   },
 });

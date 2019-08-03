@@ -1,148 +1,88 @@
 import * as React from 'react';
-import { Marker, Callout } from 'react-native-maps';
-import { MovieMarker, ToiletMarker, ElevatorMarker }from '../../domains/map';
-import { Movie }from '../../domains/movie';
-
-type IconNameType = 'default'
-  | 'toilet'
-  | 'movie'
-  | 'elevator6seater'
-  | 'elevator12seater'
-  | 'carousel';
+import { Marker } from 'react-native-maps';
+import {ToiletMarker }from '../../domains/map';
+import { ObjectPoint } from 'src/domains/object_point';
 
 interface Props {
   indoorLevel: string;
-  movieMarkers?: MovieMarker[];
+  movieMarkers?: ObjectPoint[];
   toiletMarkers?: ToiletMarker[];
-  elevatorMarkers?: ElevatorMarker[];
-  iconName?: IconNameType;
+  elevatorMarkers?: ObjectPoint[];
   pinColor?: string;
-  carouselMarker?: Movie;
+  carouselMarker?: ObjectPoint;
+  changeCarousel: (carousel: ObjectPoint) => void;
+  gate?: ObjectPoint[];
 }
 
-interface State {
-  indoorLevel: string;
-  currentMovieMarkers?: MovieMarker[];
-  currentToiletMarkers?: ToiletMarker[];
-  currentElevatorMarkers?: ElevatorMarker[];
-  currentCarouselMarker?: Movie;
-}
-
-export default class MarkerComponent extends React.Component<Props, State> {
+export default class MarkerComponent extends React.Component<Props, {}> {
   constructor(props:Props) {
     super(props);
-    const currentMovieMarkers = this.props.movieMarkers ?
-      this.currentMovieMarkerGenerate(this.props.indoorLevel, this.props.movieMarkers) : undefined;
-    const currentElevatorMarkers = this.props.elevatorMarkers ?
-      this.currentElevatorMarkerGenerate(this.props.indoorLevel, this.props.elevatorMarkers) : undefined;
-    const currentToiletMarkers = this.props.toiletMarkers ?
-      this.currentToiletMarkerGenerate(this.props.indoorLevel, this.props.toiletMarkers) : undefined;
-    this.state = {
-      indoorLevel: this.props.indoorLevel,
-      currentMovieMarkers,
-      currentElevatorMarkers,
-      currentToiletMarkers,
-    };
-  }
-
-  public componentWillReceiveProps(nextProps: Props, _: State) {
-    const currentMovieMarkers = nextProps.movieMarkers ?
-      this.currentMovieMarkerGenerate(nextProps.indoorLevel, nextProps.movieMarkers) : undefined;
-    const currentElevatorMarkers = nextProps.elevatorMarkers ?
-      this.currentElevatorMarkerGenerate(nextProps.indoorLevel, nextProps.elevatorMarkers) : undefined;
-    const currentToiletMarkers = nextProps.toiletMarkers ?
-      this.currentToiletMarkerGenerate(nextProps.indoorLevel, nextProps.toiletMarkers) : undefined;
-    this.setState({
-      indoorLevel: nextProps.indoorLevel,
-      currentMovieMarkers,
-      currentElevatorMarkers,
-      currentToiletMarkers,
-    });
   }
 
   public render() {
-    if (this.state.currentMovieMarkers !== undefined)  return this.createMovieMarkers(this.state.currentMovieMarkers.length);
-    if (this.state.currentElevatorMarkers !== undefined) return this.createElevatorMarkers();
-    if (this.state.currentToiletMarkers !== undefined) return this.createToiletMarkers();
+    if (this.props.movieMarkers !== undefined)  return this.createMarker(this.props.movieMarkers);
+    if (this.props.elevatorMarkers !== undefined) return this.createMarker(this.props.elevatorMarkers);
+    if (this.props.toiletMarkers !== undefined) return this.createToiletMarkers(this.props.toiletMarkers);
     if (this.props.carouselMarker !== undefined) return this.createCarouselMarker(this.props.carouselMarker);
+    if (this.props.gate !== undefined) return this.createMarker(this.props.gate);
     return null;
   }
 
-  private currentMovieMarkerGenerate(indoorLevel: string, movieMarkers: MovieMarker[]) {
-    return movieMarkers.filter(movieMarker => movieMarker.floor === indoorLevel);
-  }
-
-  private currentElevatorMarkerGenerate(indoorLevel: string, elevatorMarkers: ElevatorMarker[]) {
-    return elevatorMarkers.filter(elevatorMarker => elevatorMarker.floor === indoorLevel);
-  }
-
-  private currentToiletMarkerGenerate(indoorLevel: string, toiletMarkers: ToiletMarker[]) {
-    return toiletMarkers.filter(toiletMarker => toiletMarker.floor === indoorLevel);
-  }
-
-  private iconChange(iconName: IconNameType) {
+  private iconChange(iconName: string) {
     switch (iconName) {
       case 'toilet':
-        return require('../../../assets/images/toilet.png');
+        return require('../../../assets/images/map-toilet-marker.png');
       case 'movie':
-        return require('../../../assets/images/map-pointer.png');
-      case 'elevator6seater':
-        return require('../../../assets/images/elevator.png'); // TODO 画像名を 'IconNameType'に合わせたい
-      case 'elevator12seater':
-        return require('../../../assets/images/big_elevator.png');
+        return require('../../../assets/images/map_movie_pointer.png');
+      case '12人乗り':
+        return require('../../../assets/images/map-elevator-small-marker.png');
+      case '18人乗り':
+        return require('../../../assets/images/map-elevator-big-marker.png');
+      case 'gate':
+        return require('../../../assets/images/map-ticket-gate.png');
+      case 'carousel':
+        return require('../../../assets/images/map-movie-marker-check.png');
       default:
         return null;
     }
   }
 
-  private createMovieMarkers(maxLength: number) {
-    if(this.state.currentMovieMarkers === undefined) return null;
-
-    return this.state.currentMovieMarkers.map((movieMarker, index: number) =>  (
+  private createMarker = (items: ObjectPoint[]) => {
+    return items.map((item, index: number) =>  (
       <Marker
         key={`movieMarker_${index}`}
-        coordinate={{latitude: movieMarker.latitude, longitude: movieMarker.longitude}}
-        image={maxLength === index || index === 0 ? this.iconChange('default') : this.iconChange('movie')}
+        coordinate={{latitude: item.latitude, longitude: item.longitude}}
+        image={item.type === 'elevator' ? this.iconChange(item.caption) : this.iconChange(item.type)}
+        onPress={() => this.props.changeCarousel(item)}
+        anchor={item.type === 'movie' ? {x: 0.5, y: 0.5} : undefined}
+        stopPropagation={true}
       />
     ));
   }
 
-  private createElevatorMarkers() {
-    if (this.state.currentElevatorMarkers === undefined) return null;
-    return this.state.currentElevatorMarkers.map((elevatorMarker, index: number) => {
-      const icon: IconNameType = elevatorMarker.capacity === 6 ? 'elevator6seater' : 'elevator12seater'; // TODO 流動性もたせたい
-      return (
-        <Marker
-          key={`elevatorMarker_${index}`}
-          coordinate={{latitude: elevatorMarker.latitude, longitude: elevatorMarker.longitude}}
-          description={`最大${elevatorMarker.capacity}人まで乗れます`}
-          image={this.iconChange(icon)}
-        />
-      );
-    });
-  }
+  private createToiletMarkers(toiletMarkers: ToiletMarker[]) {
+    return toiletMarkers.map((toiletMarker, index: number) => {
 
-  private createToiletMarkers() {
-    if (this.state.currentToiletMarkers === undefined) return null;
-    return this.state.currentToiletMarkers.map((toiletMarker, index: number) => {
       return (
         <Marker
           key={`toiletMarker_${index}`}
           coordinate={{latitude: toiletMarker.latitude, longitude: toiletMarker.longitude}}
           image={this.iconChange('toilet')}
+          stopPropagation={true}
         />
       );
     });
-
   }
-  private createCarouselMarker(carousel: movie) {
-    if (carousel === undefined) return null;
+
+  private createCarouselMarker(carousel: ObjectPoint) {
+    if (carousel.floor !== this.props.indoorLevel) return null;
 
     return(
       <Marker
         key={'carouselMarker'}
         coordinate={{latitude: carousel.latitude, longitude: carousel.longitude}}
         image={this.iconChange('carousel')}
+        stopPropagation={true}
       />
     );
   }

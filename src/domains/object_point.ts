@@ -1,4 +1,4 @@
-export interface Movie {
+export interface ObjectPoint {
   id: number;
   name: string;
   file_path: string;
@@ -6,4 +6,6 @@ export interface Movie {
   latitude: number;
   longitude: number;
   floor: string;
+  type: 'movie' | 'elevator' | 'gate';
+  caption: string;
 }
